@@ -67,6 +67,28 @@ const DEFAULT_EXPENSE_BLOCKS = [
       { range: 'mid', price: 3500, label: 'Standard Package' },
       { range: 'high', price: 7500, label: 'Premium Package (₪5000-₪10000)' }
     ]
+  },
+  {
+    id: 5,
+    name: 'Photography Session',
+    category: 'Creative Services',
+    description: 'Professional photography service',
+    tiers: [
+      { range: '1-2', price: 500, label: '1-2 hours' },
+      { range: '3-5', price: 400, label: '3-5 hours each' },
+      { range: '6+', price: 350, label: '6+ hours each' }
+    ]
+  },
+  {
+    id: 6,
+    name: 'Motion Graphics',
+    category: 'Post-Production',
+    description: 'Animated graphics and visual effects',
+    tiers: [
+      { range: 'simple', price: 300, label: 'Simple Animation' },
+      { range: 'complex', price: 600, label: 'Complex Animation' },
+      { range: 'premium', price: 1200, label: 'Premium Effects' }
+    ]
   }
 ]
 
@@ -78,13 +100,15 @@ function App() {
   const [budgetInput, setBudgetInput] = useState('')
   const [projectDuration, setProjectDuration] = useState(1)
   const [editingExpense, setEditingExpense] = useState(null)
-  const [expenseBlocks] = useState(DEFAULT_EXPENSE_BLOCKS)
+  const [expenseBlocks, setExpenseBlocks] = useState(DEFAULT_EXPENSE_BLOCKS)
   const [reportHistory, setReportHistory] = useState([])
   const [activeTab, setActiveTab] = useState('tracker')
   const [showBlockDialog, setShowBlockDialog] = useState(false)
   const [selectedBlock, setSelectedBlock] = useState(null)
   const [blockQuantity, setBlockQuantity] = useState(1)
   const [selectedTier, setSelectedTier] = useState('')
+  const [editingBlock, setEditingBlock] = useState(null)
+  const [showAdminDialog, setShowAdminDialog] = useState(false)
   const [newExpense, setNewExpense] = useState({
     name: '',
     category: '',
@@ -98,6 +122,7 @@ function App() {
     const savedExpenses = localStorage.getItem('expenses')
     const savedBudget = localStorage.getItem('budget')
     const savedDuration = localStorage.getItem('projectDuration')
+    const savedBlocks = localStorage.getItem('expenseBlocks')
     const savedHistory = localStorage.getItem('reportHistory')
     
     if (savedExpenses) {
@@ -108,6 +133,9 @@ function App() {
     }
     if (savedDuration) {
       setProjectDuration(parseInt(savedDuration))
+    }
+    if (savedBlocks) {
+      setExpenseBlocks(JSON.parse(savedBlocks))
     }
     if (savedHistory) {
       setReportHistory(JSON.parse(savedHistory))
@@ -126,6 +154,10 @@ function App() {
   useEffect(() => {
     localStorage.setItem('projectDuration', projectDuration.toString())
   }, [projectDuration])
+
+  useEffect(() => {
+    localStorage.setItem('expenseBlocks', JSON.stringify(expenseBlocks))
+  }, [expenseBlocks])
 
   useEffect(() => {
     localStorage.setItem('reportHistory', JSON.stringify(reportHistory))
@@ -208,6 +240,68 @@ function App() {
 
   const handleDeleteExpense = (id) => {
     setExpenses(expenses.filter(expense => expense.id !== id))
+  }
+
+  const handleFileUpload = (e, isEditing = false) => {
+    const file = e.target.files[0]
+    if (file) {
+      if (isEditing) {
+        setEditingExpense({ ...editingExpense, file: file })
+      } else {
+        setNewExpense({ ...newExpense, file: file })
+      }
+    }
+  }
+
+  const handleSaveBlock = () => {
+    if (editingBlock.name && editingBlock.category && editingBlock.tiers.length > 0) {
+      if (editingBlock.id) {
+        // Update existing block
+        setExpenseBlocks(expenseBlocks.map(block => 
+          block.id === editingBlock.id ? editingBlock : block
+        ))
+      } else {
+        // Add new block
+        const newBlock = {
+          ...editingBlock,
+          id: Date.now()
+        }
+        setExpenseBlocks([...expenseBlocks, newBlock])
+      }
+      setEditingBlock(null)
+      setShowAdminDialog(false)
+    }
+  }
+
+  const handleDeleteBlock = (id) => {
+    setExpenseBlocks(expenseBlocks.filter(block => block.id !== id))
+  }
+
+  const addTierToBlock = () => {
+    if (editingBlock) {
+      setEditingBlock({
+        ...editingBlock,
+        tiers: [...editingBlock.tiers, { range: '', price: 0, label: '' }]
+      })
+    }
+  }
+
+  const updateTier = (index, field, value) => {
+    if (editingBlock) {
+      const updatedTiers = editingBlock.tiers.map((tier, i) => 
+        i === index ? { ...tier, [field]: value } : tier
+      )
+      setEditingBlock({ ...editingBlock, tiers: updatedTiers })
+    }
+  }
+
+  const removeTier = (index) => {
+    if (editingBlock) {
+      setEditingBlock({
+        ...editingBlock,
+        tiers: editingBlock.tiers.filter((_, i) => i !== index)
+      })
+    }
   }
 
   const generatePDF = () => {
@@ -430,7 +524,7 @@ function App() {
                     <CardDescription>Add common expenses with predefined pricing tiers</CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                       {expenseBlocks.map((block) => (
                         <Card key={block.id} className="cursor-pointer hover:shadow-md transition-shadow border-2 hover:border-blue-300"
                               onClick={() => {
@@ -495,6 +589,15 @@ function App() {
                         onChange={(e) => setNewExpense({ ...newExpense, date: e.target.value })}
                       />
                     </div>
+                    <div>
+                      <Label htmlFor="expense-file">Attach File (optional)</Label>
+                      <Input
+                        id="expense-file"
+                        type="file"
+                        onChange={(e) => handleFileUpload(e)}
+                        className="mt-1"
+                      />
+                    </div>
                     <Button onClick={handleAddExpense} className="w-full bg-blue-600 hover:bg-blue-700">
                       <Plus className="h-4 w-4 mr-2" />
                       Add Custom Expense
@@ -531,6 +634,9 @@ function App() {
                                   </Badge>
                                 )}
                                 <h3 className="font-semibold text-gray-900">{expense.name}</h3>
+                                {expense.file && (
+                                  <FileText className="h-4 w-4 text-gray-500" title="Has attachment" />
+                                )}
                               </div>
                               <p className="text-sm text-gray-500 mt-1">{new Date(expense.date).toLocaleDateString()}</p>
                             </div>
@@ -645,7 +751,7 @@ function App() {
                   </CardContent>
                 </Card>
 
-                {/* Charts */}
+                {/* Expenses by Category Chart */}
                 {expensesByCategory.length > 0 && (
                   <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm">
                     <CardHeader>
@@ -677,28 +783,103 @@ function App() {
                     </CardContent>
                   </Card>
                 )}
+
+                {/* Monthly Expenses Chart */}
+                {monthlyData.length > 0 && (
+                  <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm">
+                    <CardHeader>
+                      <CardTitle>Monthly Expenses</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <ResponsiveContainer width="100%" height={200}>
+                        <BarChart data={monthlyData}>
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis dataKey="month" />
+                          <YAxis />
+                          <Tooltip formatter={(value) => [`₪${value.toFixed(2)}`, 'Amount']} />
+                          <Bar dataKey="amount" fill="#3B82F6" />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </CardContent>
+                  </Card>
+                )}
               </div>
             </div>
           </TabsContent>
 
           {/* Admin Dashboard Tab */}
           <TabsContent value="admin">
-            <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Settings className="h-5 w-5 text-blue-600" />
-                  Admin Dashboard
-                </CardTitle>
-                <CardDescription>Manage expense blocks and system settings</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="text-center py-8">
-                  <Settings className="h-16 w-16 mx-auto mb-4 text-gray-400" />
-                  <h3 className="text-lg font-semibold mb-2">Admin Features Coming Soon</h3>
-                  <p className="text-gray-600">Block management and advanced settings will be available in the next update.</p>
-                </div>
-              </CardContent>
-            </Card>
+            <div className="space-y-6">
+              <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm">
+                <CardHeader>
+                  <CardTitle className="flex items-center justify-between">
+                    <span className="flex items-center gap-2">
+                      <Settings className="h-5 w-5 text-blue-600" />
+                      Expense Blocks Management
+                    </span>
+                    <Button onClick={() => {
+                      setEditingBlock({
+                        name: '',
+                        category: EXPENSE_CATEGORIES[0],
+                        description: '',
+                        tiers: [{ range: '', price: 0, label: '' }]
+                      })
+                      setShowAdminDialog(true)
+                    }}>
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add New Block
+                    </Button>
+                  </CardTitle>
+                  <CardDescription>Manage your expense blocks and pricing tiers</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {expenseBlocks.map((block) => (
+                      <Card key={block.id} className="border-2">
+                        <CardContent className="p-4">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <h3 className="font-semibold text-lg">{block.name}</h3>
+                              <p className="text-gray-600 mb-2">{block.description}</p>
+                              <Badge variant="secondary" className="mb-3">{block.category}</Badge>
+                              <div className="space-y-2">
+                                <h4 className="font-medium">Pricing Tiers:</h4>
+                                {block.tiers.map((tier, index) => (
+                                  <div key={index} className="flex items-center gap-4 text-sm">
+                                    <span className="font-medium">{tier.label}:</span>
+                                    <span className="text-green-600 font-semibold">₪{tier.price}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                            <div className="flex gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  setEditingBlock(block)
+                                  setShowAdminDialog(true)
+                                }}
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleDeleteBlock(block.id)}
+                                className="text-red-600 hover:text-red-700"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
           </TabsContent>
 
           {/* Report History Tab */}
@@ -716,7 +897,6 @@ function App() {
                   <div className="text-center py-8 text-gray-500">
                     <History className="h-12 w-12 mx-auto mb-4 opacity-50" />
                     <p>No saved reports yet</p>
-                    <p className="text-sm mt-2">Use the "Save Report" button in the Budget Tracker to create your first report</p>
                   </div>
                 ) : (
                   <div className="space-y-4">
@@ -833,6 +1013,112 @@ function App() {
         </DialogContent>
       </Dialog>
 
+      {/* Admin Block Edit Dialog */}
+      <Dialog open={showAdminDialog} onOpenChange={setShowAdminDialog}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{editingBlock?.id ? 'Edit' : 'Add'} Expense Block</DialogTitle>
+            <DialogDescription>Configure the expense block details and pricing tiers</DialogDescription>
+          </DialogHeader>
+          {editingBlock && (
+            <div className="space-y-4">
+              <div>
+                <Label>Block Name</Label>
+                <Input
+                  value={editingBlock.name}
+                  onChange={(e) => setEditingBlock({ ...editingBlock, name: e.target.value })}
+                  placeholder="e.g., Video Shooting"
+                />
+              </div>
+              <div>
+                <Label>Category</Label>
+                <Select value={editingBlock.category} onValueChange={(value) => setEditingBlock({ ...editingBlock, category: value })}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {EXPENSE_CATEGORIES.map((category) => (
+                      <SelectItem key={category} value={category}>
+                        {category}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Description</Label>
+                <Textarea
+                  value={editingBlock.description}
+                  onChange={(e) => setEditingBlock({ ...editingBlock, description: e.target.value })}
+                  placeholder="Brief description of the service"
+                />
+              </div>
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <Label>Pricing Tiers</Label>
+                  <Button type="button" onClick={addTierToBlock} size="sm">
+                    <Plus className="h-4 w-4 mr-1" />
+                    Add Tier
+                  </Button>
+                </div>
+                <div className="space-y-3">
+                  {editingBlock.tiers.map((tier, index) => (
+                    <div key={index} className="grid grid-cols-3 gap-2 p-3 border rounded-lg">
+                      <div>
+                        <Label className="text-xs">Range/Type</Label>
+                        <Input
+                          value={tier.range}
+                          onChange={(e) => updateTier(index, 'range', e.target.value)}
+                          placeholder="e.g., 1-3, low, high"
+                          size="sm"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Price (₪)</Label>
+                        <Input
+                          type="number"
+                          value={tier.price}
+                          onChange={(e) => updateTier(index, 'price', parseFloat(e.target.value) || 0)}
+                          size="sm"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Label</Label>
+                        <div className="flex gap-1">
+                          <Input
+                            value={tier.label}
+                            onChange={(e) => updateTier(index, 'label', e.target.value)}
+                            placeholder="e.g., 1-3 videos"
+                            size="sm"
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => removeTier(index)}
+                            className="text-red-600"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Button onClick={handleSaveBlock} className="flex-1">
+                  {editingBlock.id ? 'Update' : 'Create'} Block
+                </Button>
+                <Button variant="outline" onClick={() => setShowAdminDialog(false)}>
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
       {/* Edit Expense Dialog */}
       <Dialog open={!!editingExpense} onOpenChange={() => setEditingExpense(null)}>
         <DialogContent>
@@ -882,6 +1168,20 @@ function App() {
                   value={editingExpense.date}
                   onChange={(e) => setEditingExpense({ ...editingExpense, date: e.target.value })}
                 />
+              </div>
+              <div>
+                <Label htmlFor="edit-file">Update File (optional)</Label>
+                <Input
+                  id="edit-file"
+                  type="file"
+                  onChange={(e) => handleFileUpload(e, true)}
+                  className="mt-1"
+                />
+                {editingExpense.file && (
+                  <p className="text-sm text-gray-500 mt-1">
+                    Current file: {editingExpense.file.name || 'Attached file'}
+                  </p>
+                )}
               </div>
               <div className="flex gap-2">
                 <Button onClick={handleUpdateExpense} className="flex-1">
