@@ -30,7 +30,7 @@ function App() {
   const [budget, setBudget] = useState(0)
   const [budgetInput, setBudgetInput] = useState('')
   const [projectDuration, setProjectDuration] = useState(1)
-  const [projectRevenue, setProjectRevenue] = useState(0)
+
   const [editingExpense, setEditingExpense] = useState(null)
   const [newExpense, setNewExpense] = useState({
     name: '',
@@ -45,7 +45,6 @@ function App() {
     const savedExpenses = localStorage.getItem('expenses')
     const savedBudget = localStorage.getItem('budget')
     const savedDuration = localStorage.getItem('projectDuration')
-    const savedRevenue = localStorage.getItem('projectRevenue')
     
     if (savedExpenses) {
       setExpenses(JSON.parse(savedExpenses))
@@ -55,9 +54,6 @@ function App() {
     }
     if (savedDuration) {
       setProjectDuration(parseInt(savedDuration))
-    }
-    if (savedRevenue) {
-      setProjectRevenue(parseFloat(savedRevenue))
     }
   }, [])
 
@@ -74,9 +70,7 @@ function App() {
     localStorage.setItem('projectDuration', projectDuration.toString())
   }, [projectDuration])
 
-  useEffect(() => {
-    localStorage.setItem('projectRevenue', projectRevenue.toString())
-  }, [projectRevenue])
+
 
   const handleSetBudget = () => {
     const budgetValue = parseFloat(budgetInput)
@@ -149,7 +143,7 @@ function App() {
     const totalExpenses = expenses.reduce((sum, expense) => sum + expense.amount, 0)
     const budgetVariance = budget - totalExpenses
     const totalProjectExpenses = totalExpenses * projectDuration
-    const totalProjectRevenue = projectRevenue * projectDuration
+    const totalProjectRevenue = budget * projectDuration // Budget is what client pays us
     const totalProfit = totalProjectRevenue - totalProjectExpenses
 
     printWindow.document.write(`
@@ -175,11 +169,9 @@ function App() {
           
           <div class="summary">
             <h2>Project Overview</h2>
-            <p><strong>Monthly Budget:</strong> ₪${budget.toFixed(2)}</p>
+            <p><strong>Monthly Client Payment:</strong> ₪${budget.toFixed(2)}</p>
             <p><strong>Project Duration:</strong> ${projectDuration} month(s)</p>
-            <p><strong>Monthly Revenue:</strong> ₪${projectRevenue.toFixed(2)}</p>
-            <p><strong>Total Project Budget:</strong> ₪${(budget * projectDuration).toFixed(2)}</p>
-            <p><strong>Total Project Revenue:</strong> ₪${totalProjectRevenue.toFixed(2)}</p>
+            <p><strong>Total Client Payment:</strong> ₪${totalProjectRevenue.toFixed(2)}</p>
           </div>
 
           <div class="summary">
@@ -222,9 +214,9 @@ function App() {
   const budgetVariance = budget - totalExpenses
   const budgetUsage = budget > 0 ? (totalExpenses / budget) * 100 : 0
 
-  // Project statistics
+  // Project statistics - Budget is what client pays us (our revenue)
   const totalProjectExpenses = totalExpenses * projectDuration
-  const totalProjectRevenue = projectRevenue * projectDuration
+  const totalProjectRevenue = budget * projectDuration // Budget = Client Payment = Our Revenue
   const totalProfit = totalProjectRevenue - totalProjectExpenses
 
   const expensesByCategory = EXPENSE_CATEGORIES.map(category => {
@@ -269,20 +261,20 @@ function App() {
                 <CardDescription>Configure your project parameters</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="budget">Monthly Budget (₪)</Label>
+                    <Label htmlFor="budget">Monthly Client Payment (₪)</Label>
                     <div className="flex gap-2">
                       <Input
                         id="budget"
                         type="number"
-                        placeholder="Enter budget amount"
+                        placeholder="What client pays per month"
                         value={budgetInput}
                         onChange={(e) => setBudgetInput(e.target.value)}
                         className="flex-1"
                       />
                       <Button onClick={handleSetBudget} className="bg-blue-600 hover:bg-blue-700">
-                        Set Budget
+                        Set Payment
                       </Button>
                     </div>
                   </div>
@@ -294,16 +286,6 @@ function App() {
                       min="1"
                       value={projectDuration}
                       onChange={(e) => setProjectDuration(parseInt(e.target.value) || 1)}
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="revenue">Monthly Revenue (₪)</Label>
-                    <Input
-                      id="revenue"
-                      type="number"
-                      placeholder="Expected monthly revenue"
-                      value={projectRevenue}
-                      onChange={(e) => setProjectRevenue(parseFloat(e.target.value) || 0)}
                     />
                   </div>
                 </div>
@@ -435,7 +417,7 @@ function App() {
               <CardContent className="space-y-4">
                 <div className="space-y-3">
                   <div className="flex justify-between items-center">
-                    <span className="text-gray-600">Monthly Budget:</span>
+                    <span className="text-gray-600">Monthly Client Payment:</span>
                     <span className="font-semibold text-lg">₪{budget.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between items-center">
@@ -444,7 +426,7 @@ function App() {
                   </div>
                   <div className="border-t pt-3">
                     <div className="flex justify-between items-center">
-                      <span className="text-gray-600">Monthly Variance:</span>
+                      <span className="text-gray-600">Monthly Profit:</span>
                       <span className={`font-semibold text-lg ${budgetVariance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                         ₪{budgetVariance.toFixed(2)}
                       </span>
@@ -477,11 +459,7 @@ function App() {
                     <h4 className="font-semibold mb-2">Project Statistics ({projectDuration} months)</h4>
                     <div className="space-y-2 text-sm">
                       <div className="flex justify-between">
-                        <span className="text-gray-600">Total Budget:</span>
-                        <span>₪{(budget * projectDuration).toFixed(2)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Total Revenue:</span>
+                        <span className="text-gray-600">Total Client Payment:</span>
                         <span>₪{totalProjectRevenue.toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between">
